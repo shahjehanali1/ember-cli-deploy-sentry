@@ -49,7 +49,7 @@ module.exports = {
         },
         replaceFiles: true
       },
-      requiredConfig: ['publicUrl', 'sentryUrl', 'sentryOrganizationSlug', 'sentryProjectSlug', 'sentryApiKey', 'revisionKey'],
+      requiredConfig: ['publicUrl', 'sentryUrl', 'sentryOrganizationSlug', 'sentryProjectSlug'],
 
       prepare: function(context) {
         var isEnabled = this.readConfig('enableRevisionTagging');
@@ -72,12 +72,14 @@ module.exports = {
       },
 
       upload: function(/* context */) {
+        if (this.readConfig('renderRevisionKeyOnly')) {
+          return;
+        }
         this.sentrySettings = {
           url: this.readConfig('sentryUrl'),
           publicUrl: this.readConfig('publicUrl'),
           organizationSlug: this.readConfig('sentryOrganizationSlug'),
           projectSlug: this.readConfig('sentryProjectSlug'),
-          apiKey: this.readConfig('sentryApiKey'),
           bearerApiKey: this.readConfig('sentryBearerApiKey'),
           release: this.readConfig('revisionKey')
         };
@@ -135,7 +137,7 @@ module.exports = {
         return request({
           uri: this.baseUrl,
           method: 'POST',
-          auth: this.sentrySettings.auth,
+          auth: this.generateAuth(),
           json: true,
           body: {
             version: this.sentrySettings.release
@@ -198,7 +200,7 @@ module.exports = {
             protocol: 'https:',
             host: host,
             path: urlPath,
-            auth: sentrySettings.apiKey + ':'
+            headers: {'Authorization': 'Bearer ' + sentrySettings.bearerApiKey}
           }, function(error, result) {
             if(error) {
               reject(error);
