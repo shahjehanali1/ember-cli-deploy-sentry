@@ -37,6 +37,9 @@ module.exports = {
         enableRevisionTagging: true,
 
         didDeployMessage: function(/*context*/){
+          if (this.readConfig('renderRevisionKeyOnly')) {
+            return false;
+          }
           return "Uploaded sourcemaps to sentry release: "
             + this.readConfig('sentryUrl')
             + '/'
