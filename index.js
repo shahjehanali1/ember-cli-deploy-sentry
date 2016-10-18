@@ -3,7 +3,7 @@
 
 var Promise   = require('ember-cli/lib/ext/promise');
 var DeployPluginBase = require('ember-cli-deploy-plugin');
-var SilentError         = require('silent-error');
+var SilentError = require('silent-error');
 var glob = require("glob");
 var urljoin = require("url-join");
 var request = require('request-promise');
@@ -37,6 +37,9 @@ module.exports = {
         enableRevisionTagging: true,
 
         didDeployMessage: function(/*context*/){
+          if (this.readConfig('renderRevisionKeyOnly')) {
+            return false;
+          }
           return "Uploaded sourcemaps to sentry release: "
             + this.readConfig('sentryUrl')
             + '/'
@@ -49,7 +52,6 @@ module.exports = {
         },
         replaceFiles: true
       },
-      requiredConfig: ['publicUrl', 'sentryUrl', 'sentryOrganizationSlug', 'sentryProjectSlug'],
 
       prepare: function(context) {
         var isEnabled = this.readConfig('enableRevisionTagging');
