@@ -36,18 +36,18 @@ module.exports = {
         },
         enableRevisionTagging: true,
 
-        didDeployMessage: function(/*context*/){
-          if (this.readConfig('renderRevisionKeyOnly')) {
+        didDeployMessage: function(context, pluginHelper){
+          if (pluginHelper.readConfig('renderRevisionKeyOnly')) {
             return false;
           }
           return "Uploaded sourcemaps to sentry release: "
-            + this.readConfig('sentryUrl')
+            + pluginHelper.readConfig('sentryUrl')
             + '/'
-            + this.readConfig('sentryOrganizationSlug')
+            + pluginHelper.readConfig('sentryOrganizationSlug')
             + '/'
-            + this.readConfig('sentryProjectSlug')
+            + pluginHelper.readConfig('sentryProjectSlug')
             + '/releases/'
-            + this.readConfig('revisionKey')
+            + pluginHelper.readConfig('revisionKey')
             + '/';
         },
         replaceFiles: true
