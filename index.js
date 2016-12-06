@@ -207,11 +207,15 @@ module.exports = {
             if(error) {
               reject(error);
             }
-            result.resume();
+            if (result) {
+              result.resume();
 
-            result.on('end', function() {
+              result.on('end', function() {
+                resolve();
+              });
+            } else {
               resolve();
-            });
+            }
           });
         });
       },
