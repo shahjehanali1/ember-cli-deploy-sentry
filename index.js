@@ -1,7 +1,7 @@
 /* jshint node: true */
 'use strict';
 
-var Promise   = require('ember-cli/lib/ext/promise');
+var RSVP   = require('rsvp');
 var DeployPluginBase = require('ember-cli-deploy-plugin');
 var SilentError = require('silent-error');
 var glob = require("glob");
@@ -119,7 +119,7 @@ module.exports = {
         return this._getReleaseFiles().then(function(response) {
           if (this.readConfig('replaceFiles')) {
             this.log('Replacing files.', {verbose: true});
-            return Promise.all(response.map(this._deleteFile, this))
+            return RSVP.all(response.map(this._deleteFile, this))
               .then(this._doUpload.bind(this))
               .then(this._logFiles.bind(this, response));
           } else {
@@ -133,7 +133,7 @@ module.exports = {
           this.log('Release does not exist. Creating.', {verbose: true});
         } else if (error.statusCode === 400) {
           this.log('Bad Request. Not Continuing');
-          return Promise.resolve(error.message);
+          return RSVP.resolve(error.message);
         }
 
         return request({
@@ -162,7 +162,7 @@ module.exports = {
         var dir = this.readConfig('distDir');
         var filePattern = this.readConfig('filePattern');
         var pattern = path.join(dir, filePattern);
-        return new Promise(function(resolve, reject) {
+        return new RSVP.Promise(function(resolve, reject) {
           // options is optional
           glob(pattern, function (err, files) {
             if(err) {
@@ -179,7 +179,7 @@ module.exports = {
       },
       _uploadFileList: function uploadFileList(files) {
         this.log('Beginning upload.', {verbose: true});
-        return Promise.all(files.map(throat(5, this._uploadFile.bind(this))))
+        return RSVP.Promise.all(files.map(throat(5, this._uploadFile.bind(this))))
           .then(this._getReleaseFiles.bind(this));
       },
       _uploadFile: function uploadFile(filePath) {
@@ -197,7 +197,7 @@ module.exports = {
           knownLength: fileSize
         });
 
-        return new Promise(function(resolve, reject) {
+        return new RSVP.Promise(function(resolve, reject) {
           formData.submit({
             protocol: 'https:',
             host: host,
