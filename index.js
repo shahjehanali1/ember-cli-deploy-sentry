@@ -1,7 +1,7 @@
 /* jshint node: true */
 'use strict';
 
-var RSVP   = require('rsvp');
+var RSVP = require('rsvp');
 var DeployPluginBase = require('ember-cli-deploy-plugin');
 var SilentError = require('silent-error');
 var glob = require("glob");
@@ -9,9 +9,7 @@ var urljoin = require("url-join");
 var request = require('request-promise');
 var path = require('path');
 var fs = require('fs');
-var FormData = require('form-data');
 var throat = require('throat');
-var url = require('url');
 
 
 module.exports = {
@@ -19,7 +17,7 @@ module.exports = {
 
   contentFor: function(type/*, config*/) {
     if (type === 'head-footer') {
-      return '<meta name="sentry:revision"></meta>';
+      return '<meta name="sentry:revision">';
     }
   },
 
@@ -35,22 +33,8 @@ module.exports = {
           return context.revisionData && context.revisionData.revisionKey;
         },
         enableRevisionTagging: true,
-
-        didDeployMessage: function(context, pluginHelper){
-          if (pluginHelper.readConfig('renderRevisionKeyOnly')) {
-            return false;
-          }
-          return "Uploaded sourcemaps to sentry release: "
-            + pluginHelper.readConfig('sentryUrl')
-            + '/'
-            + pluginHelper.readConfig('sentryOrganizationSlug')
-            + '/'
-            + pluginHelper.readConfig('sentryProjectSlug')
-            + '/releases/'
-            + pluginHelper.readConfig('revisionKey')
-            + '/';
-        },
-        replaceFiles: true
+        replaceFiles: true,
+        strictSSL: true,
       },
 
       prepare: function(context) {
@@ -73,15 +57,27 @@ module.exports = {
         fs.writeFileSync(indexPath, index);
       },
 
-      upload: function(/* context */) {
+      /**
+       * Upload the sourcemaps to Sentry
+       *
+       * We intentionally use the semantically not quite correct `didPrepare` hook instead of `upload` to work around
+       * an issue with ember-cli-deploy-gzip (and other compression plugins like -brotli or -compress), where gzipped
+       * sourcemaps are uploaded that Sentry is not able to decompress automatically. By using a hook before `willUpload`
+       * we will upload the still uncomspressed files.
+       *
+       * See https://github.com/dschmidt/ember-cli-deploy-sentry/issues/26 and https://github.com/getsentry/sentry/issues/4566
+       */
+      didPrepare: function(/* context */) {
         if (this.readConfig('renderRevisionKeyOnly')) {
           return;
         }
+
         this.sentrySettings = {
           url: this.readConfig('sentryUrl'),
           publicUrl: this.readConfig('publicUrl'),
           organizationSlug: this.readConfig('sentryOrganizationSlug'),
           projectSlug: this.readConfig('sentryProjectSlug'),
+          apiKey: this.readConfig('sentryApiKey'),
           bearerApiKey: this.readConfig('sentryBearerApiKey'),
           release: this.readConfig('revisionKey')
         };
@@ -111,6 +107,7 @@ module.exports = {
           uri: releaseUrl,
           auth: this.generateAuth(),
           json: true,
+          strictSSL: this.readConfig('strictSSL'),
         });
       },
       handleExistingRelease: function handleExistingRelease(response) {
@@ -144,7 +141,8 @@ module.exports = {
           body: {
             version: this.sentrySettings.release
           },
-          resolveWithFullResponse: true
+          resolveWithFullResponse: true,
+          strictSSL: this.readConfig('strictSSL'),
         })
         .then(this._doUpload.bind(this))
         .then(this._logFiles.bind(this))
@@ -179,51 +177,32 @@ module.exports = {
       },
       _uploadFileList: function uploadFileList(files) {
         this.log('Beginning upload.', {verbose: true});
-        return RSVP.Promise.all(files.map(throat(5, this._uploadFile.bind(this))))
+        return RSVP.all(files.map(throat(5, this._uploadFile.bind(this))))
           .then(this._getReleaseFiles.bind(this));
       },
       _uploadFile: function uploadFile(filePath) {
-        var sentrySettings = this.sentrySettings;
         var distDir = this.readConfig('distDir');
-        var sentry_url = this.sentrySettings.url;
-        var urlPath = urljoin(this.releaseUrl, 'files/');
-        var host = url.parse(sentry_url).host;
-        var formData = new FormData();
-        formData.append('name', urljoin(this.sentrySettings.publicUrl, filePath));
-
         var fileName = path.join(distDir, filePath);
-        var fileSize = fs.statSync(fileName)["size"];
-        formData.append('file', fs.createReadStream(fileName), {
-          knownLength: fileSize
-        });
 
-        return new RSVP.Promise(function(resolve, reject) {
-          formData.submit({
-            protocol: 'https:',
-            host: host,
-            path: urlPath,
-            headers: {'Authorization': 'Bearer ' + sentrySettings.bearerApiKey}
-          }, function(error, result) {
-            if(error) {
-              reject(error);
-            }
-            if (result) {
-              result.resume();
+        var formData = {
+          name: urljoin(this.sentrySettings.publicUrl, filePath),
+          file: fs.createReadStream(fileName),
+        };
 
-              result.on('end', function() {
-                resolve();
-              });
-            } else {
-              resolve();
-            }
-          });
+        return request({
+          uri: urljoin(this.releaseUrl, 'files/'),
+          method: 'POST',
+          auth: this.generateAuth(),
+          formData: formData,
+          strictSSL: this.readConfig('strictSSL'),
         });
       },
       _getReleaseFiles: function getReleaseFiles() {
         return request({
           uri: urljoin(this.releaseUrl, 'files/'),
           auth: this.generateAuth(),
-          json: true
+          json: true,
+          strictSSL: this.readConfig('strictSSL'),
         });
       },
       _deleteFile: function deleteFile(file) {
@@ -232,6 +211,7 @@ module.exports = {
           uri: urljoin(this.releaseUrl, 'files/', file.id, '/'),
           method: 'DELETE',
           auth: this.generateAuth(),
+          strictSSL: this.readConfig('strictSSL'),
         });
       },
       _logFiles: function logFiles(response) {
@@ -240,10 +220,20 @@ module.exports = {
       },
 
       didDeploy: function(/* context */){
-        var didDeployMessage = this.readConfig('didDeployMessage');
-        if (didDeployMessage) {
-          this.log(didDeployMessage);
+        if (this.readConfig('renderRevisionKeyOnly')) {
+          return false;
         }
+        var deployMessage = "Uploaded sourcemaps to sentry release: "
+          + this.readConfig('sentryUrl')
+          + '/'
+          + this.readConfig('sentryOrganizationSlug')
+          + '/'
+          + this.readConfig('sentryProjectSlug')
+          + '/releases/'
+          + this.readConfig('revisionKey')
+          + '/';
+
+        this.log(deployMessage);
       }
     });
     return new DeployPlugin();

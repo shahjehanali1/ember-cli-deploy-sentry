@@ -25,14 +25,17 @@ $ ember install ember-cli-deploy-sentry
 
 ```javascript
 ENV.sentry = {
+  // the URL or CDN your js assets are served from
   publicUrl: 'https://your.awesome.site',
+  // the sentry install you're using, https://sentry.io for hosted accounts
   sentryUrl: 'https://sentry.your.awesome.site',
   sentryOrganizationSlug: 'AwesomeOrg',
   sentryProjectSlug: 'AwesomeProject',
+  // For hosted accounts, generate your bearer/api key here: https://sentry.io/api/
   // One of:
-  apiKey: 'awesomeApiKey',
+  sentryApiKey: 'awesomeApiKey',
   // or
-  bearerApiKey: 'awesomeApiKey'
+  sentryBearerApiKey: 'awesomeApiKey'
 }
 ```
 - Integrate [raven-js][2] in your page
@@ -125,26 +128,6 @@ The root directory that all files matching the `filePattern` will be uploaded fr
 
 *Default:* `context.distDir`
 
-### didDeployMessage
-
-A message that will be displayed after the distDir has been copied to destDir.
-
-*Default:*
-
-```javascript
-      didDeployMessage: function(context){
-      return "Uploaded sourcemaps to sentry release: "
-        + this.readConfig('sentryUrl')
-        + '/'
-        + this.readConfig('sentryOrganizationSlug')
-        + '/'
-        + this.readConfig('sentryProjectSlug')
-        + '/releases/'
-        + this.readConfig('revisionKey')
-        + '/';
-    }
-```
-
 ### filePattern
 
 `minimatch` expression that is used to determine which files should be uploaded from the `distDir`.
@@ -154,6 +137,8 @@ A message that will be displayed after the distDir has been copied to destDir.
 ### revisionKey
 
 The revision string that is used to create releases in sentry.
+
+*Default:*
 ```javascript
   revisionKey: function(context) {
     return context.revisionData && context.revisionData.revisionKey;
@@ -168,7 +153,7 @@ Enable adding a meta tag with the current revisionKey into the head of your `ind
 
 ### replaceFiles
 
-At deploy-time, the plugin will check your Sentry instance for an existing release under the current `revisionKey`. If a release is found and this is set to `true`, all existing files for the matching release will be deleted before the current build's files are uploaded to Sentry. If this is set to `false`, the files on Sentry will remain untouched and the just-built files will not be uploaded. 
+At deploy-time, the plugin will check your Sentry instance for an existing release under the current `revisionKey`. If a release is found and this is set to `true`, all existing files for the matching release will be deleted before the current build's files are uploaded to Sentry. If this is set to `false`, the files on Sentry will remain untouched and the just-built files will not be uploaded.
 
 *Default* true
 
@@ -192,7 +177,7 @@ When you setup [raven-js][2] you can retrieve it like this:
 
 ```javascript
 Raven.config({
-    release: $("meta[name='sentry:revision']").attr('content')
+    release: document.querySelector("meta[name='sentry:revision']").content
 });
 ```
 

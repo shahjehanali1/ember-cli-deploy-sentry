@@ -1,5 +1,28 @@
 # ember-cli-deploy-sentry Changelog
 
+### 0.5.5
+- Remove jQuery usages [#45]
+
+### 0.5.4
+- Remove sentryApiKey from required config params [#43]
+- Add strictSSL option for request [#43]
+
+### 0.5.3
+- Remove </meta> to prevent IE10 from breaking [#40]
+
+### 0.5.2
+- Fix deprecation warning for ember-cli/lib/ext/promise [#35]
+- Add config documentation [#33]
+
+### 0.5.1
+- Remove documentation for `didDeployMessage` config option as its gone
+
+### 0.5.0
+Thanks to @kmiyashiro, @Turbo87 and especially @duizendnegen for making this release happen!
+
+- Add bearer token authentication [#21]
+- Support ember-cli-deploy-plugin 0.2.9 [#27]
+
 ### 0.4.0
 
 - Gracefully handle reuploading sourcemaps for releases with assigned issues
